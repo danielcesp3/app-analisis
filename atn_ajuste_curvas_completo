@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATN · Ajuste de Curvas</title>
+<!-- Fuentes distintivas; si no hay internet, caen a una pila nativa elegante. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&family=Spline+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===================================================================================
+   ESTILOS  —  Estética "instrumento científico / blueprint"
+   Fondo azul noche, retícula fina, acentos ámbar y cian, datos en monoespaciada.
+   =================================================================================== */
+:root{
+  --bg:#0c1320; --bg2:#111a2b; --panel:#13203a; --panel-2:#0f1a30;
+  --line:#26344f; --line-soft:#1c2840;
+  --ink:#e8eef7; --muted:#8da2c0; --faint:#5f7390;
+  --amber:#f5b942; --cyan:#46d2d8; --green:#5fd08a; --red:#ef6f6f; --violet:#a78bfa;
+  --display:"Fraunces",Georgia,"Times New Roman",serif;
+  --sans:"Spline Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;}
+body{
+  font-family:var(--sans); color:var(--ink); background:var(--bg);
+  background-image:
+    linear-gradient(var(--line-soft) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+  background-size:34px 34px; background-position:center;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 20px 50px;}
+
+/* ---- encabezado ---- */
+header.app{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;
+  padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:18px;
+  animation:rise .6s ease both;}
+.brand h1{font-family:var(--display);font-weight:600;font-size:30px;margin:0;letter-spacing:.3px;}
+.brand .accent{color:var(--amber);}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px;letter-spacing:.5px;}
+.chip{font-family:var(--mono);font-size:11px;color:var(--cyan);border:1px solid var(--line);
+  padding:6px 11px;border-radius:999px;background:var(--panel-2);white-space:nowrap;}
+
+/* ---- pestañas ---- */
+nav.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+nav.tabs button{font-family:var(--mono);font-size:12.5px;letter-spacing:.4px;color:var(--muted);
+  background:var(--panel-2);border:1px solid var(--line);padding:10px 16px;border-radius:10px;
+  cursor:pointer;transition:.18s;}
+nav.tabs button:hover{color:var(--ink);border-color:#3a4d72;}
+nav.tabs button.active{color:var(--bg);background:var(--amber);border-color:var(--amber);font-weight:700;}
+
+/* ---- layout de módulos ---- */
+.module{display:none;animation:rise .45s ease both;}
+.module.active{display:block;}
+.grid{display:grid;grid-template-columns:380px 1fr;gap:18px;align-items:start;}
+@media(max-width:880px){.grid{grid-template-columns:1fr;}}
+
+.card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+  border-radius:14px;padding:16px;box-shadow:0 14px 30px -20px rgba(0,0,0,.8);}
+.card h2{font-family:var(--display);font-weight:500;font-size:17px;margin:0 0 12px;}
+.card h3{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--cyan);
+  margin:16px 0 8px;font-family:var(--mono);}
+
+/* ---- entradas ---- */
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;letter-spacing:.4px;}
+input[type=text],input[type=number],textarea,select{width:100%;font-family:var(--mono);
+  font-size:13px;color:var(--ink);background:var(--bg2);border:1px solid var(--line);
+  border-radius:9px;padding:9px 11px;outline:none;transition:.15s;}
+input:focus,textarea:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(70,210,216,.12);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ---- tabla dinámica ---- */
+.tbl-wrap{max-height:210px;overflow:auto;border:1px solid var(--line);border-radius:10px;}
+table.data{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px;}
+table.data th{position:sticky;top:0;background:var(--panel);color:var(--cyan);font-weight:500;
+  font-size:11px;letter-spacing:1px;padding:8px;border-bottom:1px solid var(--line);}
+table.data td{padding:3px 6px;border-bottom:1px solid var(--line-soft);}
+table.data input{padding:5px 7px;border-radius:6px;text-align:center;}
+.del-row{cursor:pointer;color:var(--red);background:none;border:none;font-size:15px;width:100%;}
+.del-row:hover{color:#ff9a9a;}
+
+/* ---- botones ---- */
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+button.act{font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;border-radius:9px;
+  padding:9px 13px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);transition:.16s;}
+button.act:hover{border-color:#46607f;transform:translateY(-1px);}
+button.primary{background:var(--amber);color:#1a1206;border-color:var(--amber);}
+button.primary:hover{box-shadow:0 6px 18px -6px var(--amber);}
+button.cyan{background:transparent;color:var(--cyan);border-color:#2c5566;}
+button.cyan:hover{background:rgba(70,210,216,.08);}
+button.ghost{background:transparent;color:var(--muted);}
+
+/* ---- checks de métodos ---- */
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.check{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;
+  padding:8px 10px;border:1px solid var(--line);border-radius:9px;cursor:pointer;transition:.15s;color:var(--muted);}
+.check:hover{border-color:#3a4d72;color:var(--ink);}
+.check input{width:auto;accent-color:var(--amber);}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+/* ---- resultados ---- */
+.results table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;}
+.results th{color:var(--muted);font-weight:500;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);
+  font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;}
+.results td{padding:7px 8px;border-bottom:1px solid var(--line-soft);}
+.results tr.best td{background:rgba(95,208,138,.12);}
+.results tr.best td:first-child{color:var(--green);font-weight:700;}
+.tag-best{font-size:9px;background:var(--green);color:#06210f;padding:2px 6px;border-radius:5px;margin-left:6px;}
+
+/* ---- canvas ---- */
+.canvas-card{padding:10px;}
+canvas{width:100%;display:block;border-radius:10px;background:var(--panel-2);}
+
+/* ---- panel de pasos ---- */
+.steps{font-family:var(--mono);font-size:12px;line-height:1.55;color:#cdd9ec;white-space:pre-wrap;
+  background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:14px;
+  max-height:260px;overflow:auto;}
+.result-big{font-family:var(--mono);font-size:20px;color:var(--amber);margin:10px 0;}
+.result-big small{color:var(--muted);font-size:12px;font-family:var(--sans);}
+
+/* ---- avisos ---- */
+.note{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:10px;}
+.alert{font-family:var(--mono);font-size:12px;color:var(--red);background:rgba(239,111,111,.08);
+  border:1px solid rgba(239,111,111,.3);border-radius:9px;padding:10px;margin-top:10px;display:none;}
+
+/* ---- acerca de ---- */
+.about{max-width:720px;margin:0 auto;}
+.about .meta{display:grid;grid-template-columns:130px 1fr;gap:10px 16px;font-size:14px;margin:8px 0;}
+.about .meta b{color:var(--cyan);font-family:var(--mono);font-size:12px;letter-spacing:.5px;}
+.about ul{list-style:none;padding:0;margin:6px 0;}
+.about ul li{font-family:var(--mono);font-size:13px;padding:4px 0;color:var(--ink);}
+.about ul li::before{content:"▹ ";color:var(--amber);}
+hr.sep{border:none;border-top:1px solid var(--line);margin:18px 0;}
+
+@keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+footer{margin-top:26px;text-align:center;color:var(--faint);font-size:11px;font-family:var(--mono);}
+.legend-hint{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div class="brand">
+      <h1>Análisis de Técnicas Numéricas<span class="accent">.</span></h1>
+      <p>Ajuste de curvas por mínimos cuadrados</p>
+    </div>
+    <div class="chip">v1.0 · sin dependencias · offline</div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="reg">Regresión (Mínimos Cuadrados)</button>
+    <button class="tab-btn" data-tab="about">Acerca de</button>
+  </nav>
+
+  <!-- ============================== MÓDULO REGRESIÓN ============================== -->
+  <section class="module active" id="reg">
+    <div class="grid">
+      <!-- columna izquierda: controles -->
+      <div>
+        <div class="card">
+          <h2>Entrada de datos</h2>
+          <label>X (separados por comas)</label>
+          <input type="text" id="reg-x" placeholder="1, 2, 3, 4, 5">
+          <label style="margin-top:8px">Y (separados por comas)</label>
+          <input type="text" id="reg-y" placeholder="0.5, 1.7, 3.4, 5.7, 8.4">
+          <div class="btns">
+            <button class="act cyan" onclick="cargarTexto('reg')">Cargar en tabla ▾</button>
+            <button class="act ghost" onclick="ejemploReg()">Ejemplo</button>
+          </div>
+
+          <h3>Tabla dinámica</h3>
+          <div class="tbl-wrap">
+            <table class="data" id="reg-tbl">
+              <thead><tr><th>X</th><th>Y</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="btns">
+            <button class="act" onclick="addRow('reg')">+ Fila</button>
+            <button class="act ghost" onclick="clearTbl('reg')">Limpiar</button>
+          </div>
+
+          <h3>Métodos a ajustar</h3>
+          <div class="checks" id="reg-metodos"></div>
+
+          <div class="btns">
+            <button class="act primary" onclick="calcularReg(false)">Calcular y graficar</button>
+            <button class="act cyan" onclick="calcularReg(true)">Comparar todos</button>
+          </div>
+          <div class="alert" id="reg-alert"></div>
+          <p class="note">Exponencial, Potencial, Geométrico, Exp. Asintótico y Logístico exigen Y&gt;0; Logarítmica y Potencial exigen X&gt;0.
+            Geométrico, Exp. Asintótico y Logístico necesitan ≥ 3 puntos. La asíntota L se estima automáticamente.
+            Los estadísticos (r, R², Sy/x) se calculan sobre los datos originales para comparar de forma justa.</p>
+        </div>
+      </div>
+
+      <!-- columna derecha: gráfica + resultados -->
+      <div>
+        <div class="card canvas-card">
+          <canvas id="reg-canvas" height="380"></canvas>
+          <div class="legend-hint">Puntos negros = datos originales · curvas = modelos ajustados</div>
+        </div>
+        <div class="card results" style="margin-top:18px">
+          <h2>Resultados estadísticos</h2>
+          <table id="reg-results">
+            <thead><tr><th>Método</th><th>Ecuación</th><th>r</th><th>R²</th><th>Sy/x</th></tr></thead>
+            <tbody><tr><td colspan="5" style="color:var(--muted)">Aún no hay cálculos.</td></tr></tbody>
+          </table>
+          <div class="steps" id="reg-steps" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== ACERCA DE ============================== -->
+  <section class="module" id="about">
+    <div class="card about">
+      <h2 style="font-size:22px">Acerca del software</h2>
+      <p style="color:var(--muted);font-size:14px;margin-top:-4px">
+        Herramienta para ajustar curvas a datos experimentales por mínimos cuadrados
+        vistos en el curso de Análisis de Técnicas Numéricas.</p>
+      <hr class="sep">
+      <div class="meta" id="about-meta"></div>
+      <hr class="sep">
+      <h3 style="color:var(--cyan);font-family:var(--mono);font-size:12px;letter-spacing:1px">AUTORES</h3>
+      <ul id="about-autores"></ul>
+      <hr class="sep">
+      <h3 style="color:var(--cyan);font-family:var(--mono);font-size:12px;letter-spacing:1px">MÉTODOS IMPLEMENTADOS</h3>
+      <p style="font-size:13.5px;line-height:1.7;color:var(--ink)">
+        <b style="color:var(--amber)">Regresión:</b> Lineal, Exponencial, Logarítmica, Potencial, Hiperbólica,
+        <b style="color:var(--amber)">Geométrico, Exponencial Asintótico y Logístico (Verhulst)</b>,
+        con coeficiente de correlación de Pearson (r), coeficiente de determinación (R²)
+        y error estándar de la estimación (Sy/x).</p>
+    </div>
+  </section>
+
+  <footer>Hecho con HTML, CSS y JavaScript puro · gráficas dibujadas con Canvas nativo</footer>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================================
+   0) CRÉDITOS  —  EDITA AQUÍ LOS NOMBRES DE TU GRUPO
+   ===================================================================================== */
+const CREDITOS = {
+  Universidad: "Corporación Universitaria del Caribe (CECAR)",
+  Facultad:    "Ciencias Básicas, Ingeniería y Arquitectura",
+  Asignatura:  "Análisis de Técnicas Numéricas (ATN)",
+  Profesor:    "Ing. Carlos Cohen M.",
+};
+const AUTORES = [
+  "Autor 1  ·  (escribe aquí tu nombre)",
+  "Autor 2  ·  (escribe aquí tu nombre)",
+  "Autor 3  ·  (escribe aquí tu nombre)",
+];
+
+/* =====================================================================================
+   1) MOTOR MATEMÁTICO  (idéntico al validado en Node)
+   ===================================================================================== */
+const sum  = a => a.reduce((s,v)=>s+v,0);
+const mean = a => sum(a)/a.length;
+const std  = a => { const m=mean(a); return Math.sqrt(sum(a.map(v=>(v-m)**2))/a.length); };
+function corr(a,b){
+  const ma=mean(a),mb=mean(b); let num=0,da=0,db=0;
+  for(let i=0;i<a.length;i++){num+=(a[i]-ma)*(b[i]-mb);da+=(a[i]-ma)**2;db+=(b[i]-mb)**2;}
+  return (da<1e-15||db<1e-15)?NaN:num/Math.sqrt(da*db);
+}
+// Núcleo de mínimos cuadrados para la recta Y = A0 + A1*X (ecuaciones normales).
+function ajusteLinealBase(X,Y){
+  const n=X.length, sx=sum(X), sy=sum(Y),
+        sxx=sum(X.map(v=>v*v)), sxy=sum(X.map((v,i)=>v*Y[i]));
+  const den=n*sxx-sx*sx;
+  if(Math.abs(den)<1e-15) throw new Error("Los valores de X no tienen variación suficiente.");
+  const A1=(n*sxy-sx*sy)/den, A0=(sy-A1*sx)/n;
+  return [A0,A1];
+}
+// r, R² y Sy/x calculados SIEMPRE sobre los datos originales (comparación justa).
+function estadisticos(yObs,yPred,nP=2){
+  const n=yObs.length, yb=mean(yObs);
+  const St=sum(yObs.map(v=>(v-yb)**2));
+  const Sr=sum(yObs.map((v,i)=>(v-yPred[i])**2));
+  const r2=St>1e-15?1-Sr/St:NaN;
+  const r=(std(yObs)>1e-15&&std(yPred)>1e-15)?corr(yObs,yPred):NaN;
+  const syx=n>nP?Math.sqrt(Sr/(n-nP)):NaN;
+  return {r,r2,syx,St,Sr};
+}
+function bloqueEstad(e){
+  return `\n--- Validación estadística (datos originales) ---\n`+
+         `  St = ${e.St.toFixed(6)}\n  Sr = ${e.Sr.toFixed(6)}\n`+
+         `  r  (Pearson)       = ${e.r.toFixed(6)}\n`+
+         `  R² (determinación) = ${e.r2.toFixed(6)}\n`+
+         `  Sy/x (error est.)  = ${e.syx.toFixed(6)}\n`;
+}
+
+// --- Regresión Lineal:  y = a0 + a1·x ---
+function regLineal(x,y){
+  const [a0,a1]=ajusteLinealBase(x,y), fn=t=>a0+a1*t;
+  const e=estadisticos(y,x.map(fn));
+  const pasos=`MÉTODO: Regresión Lineal  →  y = a0 + a1·x\n`+
+    `  n=${x.length}  Σx=${sum(x).toFixed(4)}  Σy=${sum(y).toFixed(4)}\n`+
+    `  a1 = ${a1.toFixed(6)}\n  a0 = ȳ - a1·x̄ = ${a0.toFixed(6)}\n`+bloqueEstad(e);
+  return {nombre:"Lineal",ecuacion:`y = ${a0.toFixed(4)} + ${a1.toFixed(4)}·x`,fn,...e,pasos};
+}
+// --- Exponencial:  y = a·e^(b·x)   linealizada con ln(y) ---
+function regExponencial(x,y){
+  if(y.some(v=>v<=0)) throw new Error("Exponencial: todos los Y deben ser positivos (se usa ln(y)).");
+  const Y=y.map(Math.log), [A0,A1]=ajusteLinealBase(x,Y);
+  const a=Math.exp(A0), b=A1, fn=t=>a*Math.exp(b*t);
+  const e=estadisticos(y,x.map(fn));
+  const pasos=`MÉTODO: Regresión Exponencial  →  y = a·e^(b·x)\n`+
+    `  Linealización: ln(y) = ln(a) + b·x\n`+
+    `  A0 = ln(a) = ${A0.toFixed(6)} → a = ${a.toFixed(6)}\n  b = ${b.toFixed(6)}\n`+bloqueEstad(e);
+  return {nombre:"Exponencial",ecuacion:`y = ${a.toFixed(4)}·e^(${b.toFixed(4)}·x)`,fn,...e,pasos};
+}
+// --- Logarítmica:  y = a + b·ln(x) ---
+function regLogaritmica(x,y){
+  if(x.some(v=>v<=0)) throw new Error("Logarítmica: todos los X deben ser positivos (se usa ln(x)).");
+  const X=x.map(Math.log), [a,b]=ajusteLinealBase(X,y), fn=t=>a+b*Math.log(t);
+  const e=estadisticos(y,x.map(fn));
+  const pasos=`MÉTODO: Regresión Logarítmica  →  y = a + b·ln(x)\n`+
+    `  Cambio de variable: X = ln(x)\n  a = ${a.toFixed(6)}\n  b = ${b.toFixed(6)}\n`+bloqueEstad(e);
+  return {nombre:"Logarítmica",ecuacion:`y = ${a.toFixed(4)} + ${b.toFixed(4)}·ln(x)`,fn,...e,pasos};
+}
+// --- Potencial:  y = a·x^b   linealizada con logaritmos en ambas variables ---
+function regPotencial(x,y){
+  if(x.some(v=>v<=0)||y.some(v=>v<=0)) throw new Error("Potencial: X e Y deben ser positivos.");
+  const X=x.map(Math.log), Y=y.map(Math.log), [A0,A1]=ajusteLinealBase(X,Y);
+  const a=Math.exp(A0), b=A1, fn=t=>a*Math.pow(t,b);
+  const e=estadisticos(y,x.map(fn));
+  const pasos=`MÉTODO: Regresión Potencial  →  y = a·x^b\n`+
+    `  Linealización: ln(y) = ln(a) + b·ln(x)\n`+
+    `  A0 = ln(a) = ${A0.toFixed(6)} → a = ${a.toFixed(6)}\n  b = ${b.toFixed(6)}\n`+bloqueEstad(e);
+  return {nombre:"Potencial",ecuacion:`y = ${a.toFixed(4)}·x^${b.toFixed(4)}`,fn,...e,pasos};
+}
+// --- Hiperbólica:  y = 1/(a + b·x)   linealizada con el recíproco 1/y ---
+function regHiperbolica(x,y){
+  if(y.some(v=>v===0)) throw new Error("Hiperbólica: ningún valor de Y puede ser 0 (se usa 1/y).");
+  const Y=y.map(v=>1/v);                 // variable transformada: 1/y
+  const [a,b]=ajusteLinealBase(x,Y);     // 1/y = a + b·x  (recta)
+  const fn=t=>1/(a+b*t);
+  const e=estadisticos(y,x.map(fn));
+  const pasos=`MÉTODO: Regresión Hiperbólica  →  y = 1/(a + b·x)\n`+
+    `  Linealización: 1/y = a + b·x  (recta en x vs 1/y)\n`+
+    `  a = ${a.toFixed(6)}\n  b = ${b.toFixed(6)}\n`+bloqueEstad(e);
+  return {nombre:"Hiperbólica",ecuacion:`y = 1 / (${a.toFixed(4)} + ${b.toFixed(4)}·x)`,fn,...e,pasos};
+}
+
+// --- Geométrico:  P(t) = P0·(1+r)^t   tasa geométrica promedio entre intervalos ---
+function regGeometrico(x,y){
+  if(y.some(v=>v<=0)) throw new Error("Geométrico: todos los Y deben ser positivos.");
+  if(x.length<2) throw new Error("Geométrico: se necesitan al menos 2 puntos.");
+  const tasas=[];
+  let detalle="  Tasas por intervalo:\n";
+  for(let i=0;i<x.length-1;i++){
+    const dt=x[i+1]-x[i];
+    if(dt===0) throw new Error("Geométrico: los valores de X deben ser distintos.");
+    const r=Math.pow(y[i+1]/y[i],1/dt)-1;
+    tasas.push(r);
+    detalle+=`    [${x[i]}→${x[i+1]}]: r = ${r.toFixed(6)}\n`;
+  }
+  const rBar=sum(tasas)/tasas.length;
+  const P0=y[y.length-1], t0=x[x.length-1];
+  const fn=t=>P0*Math.pow(1+rBar,t-t0);
+  const e=estadisticos(y,x.map(fn));
+  const pasos=`MÉTODO: Geométrico  →  P(t) = P₀·(1+r̄)^(t−t₀)\n`+
+    `  Tasa geométrica promedio r̄ entre intervalos consecutivos\n`+detalle+
+    `  r̄ = ${rBar.toFixed(6)}\n  P₀ = ${P0} (último dato, t₀ = ${t0})\n`+bloqueEstad(e);
+  return {nombre:"Geométrico",ecuacion:`P = ${P0.toFixed(2)}·(1+${rBar.toFixed(6)})^(t−${t0})`,fn,...e,pasos};
+}
+
+// --- Exponencial Asintótico:  P(t) = L − (L−P0)·e^(−k·t)   crecimiento con límite superior ---
+function regExpAsintotico(x,y){
+  if(y.some(v=>v<=0)) throw new Error("Exp. Asintótico: todos los Y deben ser positivos.");
+  if(x.length<3) throw new Error("Exp. Asintótico: se necesitan al menos 3 puntos.");
+  // Estimar L automáticamente como 1.6 × máximo observado
+  const L=Math.max(...y)*1.6;
+  if(y.some(v=>v>=L)) throw new Error(`Exp. Asintótico: L estimada (${L.toFixed(2)}) no supera todos los datos.`);
+  const t0=x[0];
+  const ts=x.map(v=>v-t0);
+  const lnD=y.map(v=>Math.log(L-v));
+  const [lnD0,negK]=ajusteLinealBase(ts,lnD);
+  const k=-negK, D0=Math.exp(lnD0), P0=L-D0;
+  const fn=t=>L-(L-P0)*Math.exp(-k*(t-t0));
+  const e=estadisticos(y,x.map(fn));
+  const pasos=`MÉTODO: Exponencial Asintótico  →  P(t) = L − (L−P₀)·e^(−k·(t−t₀))\n`+
+    `  Linealización: ln(L−P) = ln(L−P₀) − k·(t−t₀)\n`+
+    `  L (asíntota estimada) = ${L.toFixed(4)}\n`+
+    `  k = ${k.toFixed(6)}\n  P₀ = ${P0.toFixed(4)}  (t₀ = ${t0})\n`+bloqueEstad(e);
+  return {nombre:"Exp. Asintótico",ecuacion:`P = ${L.toFixed(2)} − ${D0.toFixed(2)}·e^(−${k.toFixed(4)}·(t−${t0}))`,fn,...e,pasos};
+}
+
+// --- Logístico (Verhulst):  P(t) = L / (1 + a·e^(−k·t))   curva S con saturación ---
+function regLogistico(x,y){
+  if(y.some(v=>v<=0)) throw new Error("Logístico: todos los Y deben ser positivos.");
+  if(x.length<3) throw new Error("Logístico: se necesitan al menos 3 puntos.");
+  // Estimar L con método de los tres puntos de Pearl-Reed
+  const i0=0, i1=Math.floor((y.length-1)/2), i2=y.length-1;
+  const P1=y[i0], P2=y[i1], P3=y[i2];
+  const num=2*P1*P2*P3 - P2*P2*(P1+P3);
+  const den=P1*P3 - P2*P2;
+  let L=(den!==0&&num/den>Math.max(...y))?num/den:Math.max(...y)*2.0;
+  if(L<=Math.max(...y)) L=Math.max(...y)*2.0;
+  if(y.some(v=>v>=L)) throw new Error(`Logístico: L estimada (${L.toFixed(2)}) debe superar todos los datos.`);
+  const t0=x[0];
+  const ts=x.map(v=>v-t0);
+  const Ytr=y.map(v=>Math.log(L/v-1));   // ln(L/P − 1) = ln(a) − k·t
+  const [lna,negK]=ajusteLinealBase(ts,Ytr);
+  const a=Math.exp(lna), k=-negK;
+  const fn=t=>L/(1+a*Math.exp(-k*(t-t0)));
+  const e=estadisticos(y,x.map(fn));
+  const tInfl=(Math.log(a)/k)+t0;
+  const pasos=`MÉTODO: Logístico (Verhulst)  →  P(t) = L / (1 + a·e^(−k·(t−t₀)))\n`+
+    `  L estimada por método de 3 puntos (Pearl-Reed):\n`+
+    `    P₁=${P1}  P₂=${P2}  P₃=${P3}\n`+
+    `    L = 2P₁P₂P₃ − P₂²(P₁+P₃) / (P₁P₃ − P₂²) = ${L.toFixed(4)}\n`+
+    `  Linealización: ln(L/P − 1) = ln(a) − k·(t−t₀)\n`+
+    `  a = ${a.toFixed(6)}\n  k = ${k.toFixed(6)}\n`+
+    `  Punto de inflexión: t* ≈ ${tInfl.toFixed(2)},  P* = L/2 = ${(L/2).toFixed(2)}\n`+bloqueEstad(e);
+  return {nombre:"Logístico",ecuacion:`P = ${L.toFixed(2)} / (1 + ${a.toFixed(4)}·e^(−${k.toFixed(4)}·(t−${t0})))`,fn,...e,pasos};
+}
+
+const METODOS_REG = {
+  Lineal:{fn:regLineal,color:"#46d2d8"}, Exponencial:{fn:regExponencial,color:"#ef6f6f"},
+  Logarítmica:{fn:regLogaritmica,color:"#5fd08a"}, Potencial:{fn:regPotencial,color:"#a78bfa"},
+  Hiperbólica:{fn:regHiperbolica,color:"#ff8fab"},
+  Geométrico:{fn:regGeometrico,color:"#f5b942"},
+  "Exp. Asintótico":{fn:regExpAsintotico,color:"#c084fc"},
+  Logístico:{fn:regLogistico,color:"#fb923c"},
+};
+
+/* =====================================================================================
+   2) MOTOR DE GRÁFICAS EN CANVAS (sin librerías)
+   ===================================================================================== */
+function niceNum(range,round){
+  const exp=Math.floor(Math.log10(range)), f=range/Math.pow(10,exp); let nf;
+  if(round){nf=f<1.5?1:f<3?2:f<7?5:10;} else {nf=f<=1?1:f<=2?2:f<=5?5:10;}
+  return nf*Math.pow(10,exp);
+}
+// series: {type:'scatter'|'line'|'marker', x:[], y:[], color, label, size}
+function dibujar(canvas, series, opts={}){
+  const dpr=window.devicePixelRatio||1;
+  const cssW=canvas.clientWidth||720, cssH=canvas.height;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  const ctx=canvas.getContext("2d"); ctx.scale(dpr,dpr);
+  const W=cssW,H=cssH, m={l:54,r:16,t:16,b:42};
+
+  // límites: el eje X abarca todos los datos; el eje Y se basa en los PUNTOS
+  // medidos (scatter) para que una asíntota de la curva no deforme la escala.
+  let xs=[]; series.forEach(s=>{xs=xs.concat(s.x);});
+  let ysData=[]; series.filter(s=>s.type==="scatter"||s.type==="marker").forEach(s=>{ysData=ysData.concat(s.y);});
+  if(ysData.length===0) series.forEach(s=>{ysData=ysData.concat(s.y);});
+  xs=xs.filter(Number.isFinite); ysData=ysData.filter(Number.isFinite);
+  if(xs.length===0)return;
+  let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ysData),ymax=Math.max(...ysData);
+  if(xmin===xmax){xmin-=1;xmax+=1;} if(ymin===ymax){ymin-=1;ymax+=1;}
+  const padY=(ymax-ymin)*0.08; ymin-=padY; ymax+=padY;
+  const padX=(xmax-xmin)*0.04; xmin-=padX; xmax+=padX;
+
+  const X=v=>m.l+(v-xmin)/(xmax-xmin)*(W-m.l-m.r);
+  const Y=v=>H-m.b-(v-ymin)/(ymax-ymin)*(H-m.t-m.b);
+
+  ctx.clearRect(0,0,W,H);
+  // retícula con ticks "bonitos"
+  ctx.font="10px 'JetBrains Mono',monospace"; ctx.textBaseline="middle";
+  const drawAxis=(min,max,horiz)=>{
+    const range=niceNum(max-min,false), step=niceNum(range/5,true);
+    const start=Math.ceil(min/step)*step;
+    for(let v=start;v<=max+1e-9;v+=step){
+      ctx.strokeStyle="#1c2840"; ctx.lineWidth=1; ctx.beginPath();
+      ctx.fillStyle="#6f86a8";
+      if(horiz){const px=X(v);ctx.moveTo(px,m.t);ctx.lineTo(px,H-m.b);ctx.stroke();
+        ctx.textAlign="center";ctx.fillText(fmt(v),px,H-m.b+14);}
+      else{const py=Y(v);ctx.moveTo(m.l,py);ctx.lineTo(W-m.r,py);ctx.stroke();
+        ctx.textAlign="right";ctx.fillText(fmt(v),m.l-8,py);}
+    }
+  };
+  drawAxis(xmin,xmax,true); drawAxis(ymin,ymax,false);
+  // marco de ejes
+  ctx.strokeStyle="#3a4d72"; ctx.lineWidth=1.2; ctx.strokeRect(m.l,m.t,W-m.l-m.r,H-m.t-m.b);
+  // etiquetas de ejes
+  ctx.fillStyle="#8da2c0"; ctx.textAlign="center";
+  ctx.fillText(opts.xlabel||"x",(m.l+W-m.r)/2,H-6);
+  ctx.save();ctx.translate(14,(m.t+H-m.b)/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText(opts.ylabel||"y",0,0);ctx.restore();
+
+  // series
+  series.forEach(s=>{
+    if(s.type==="line"){
+      ctx.strokeStyle=s.color;ctx.lineWidth=2.2;ctx.beginPath();
+      let started=false; const top=m.t,bot=H-m.b;
+      s.x.forEach((vx,i)=>{
+        const vy=s.y[i];
+        if(!Number.isFinite(vx)||!Number.isFinite(vy)){started=false;return;}
+        const py=Y(vy);
+        if(py<top||py>bot){started=false;return;} // fuera del recuadro: cortamos el trazo
+        const px=X(vx);
+        if(started)ctx.lineTo(px,py); else {ctx.moveTo(px,py);started=true;}
+      });
+      ctx.stroke();
+    } else if(s.type==="marker"){
+      s.x.forEach((vx,i)=>{const px=X(vx),py=Y(s.y[i]);
+        ctx.strokeStyle=s.color;ctx.lineWidth=2.6;const r=7;
+        ctx.beginPath();ctx.moveTo(px-r,py-r);ctx.lineTo(px+r,py+r);
+        ctx.moveTo(px+r,py-r);ctx.lineTo(px-r,py+r);ctx.stroke();});
+    } else { // scatter
+      s.x.forEach((vx,i)=>{const px=X(vx),py=Y(s.y[i]);
+        ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(px,py,4,0,7);ctx.fill();
+        ctx.strokeStyle="#0c1320";ctx.lineWidth=1.5;ctx.stroke();});
+    }
+  });
+
+  // leyenda
+  const leg=series.filter(s=>s.label);
+  let ly=m.t+8;
+  ctx.textAlign="left";ctx.font="11px 'JetBrains Mono',monospace";
+  leg.forEach(s=>{
+    const lx=W-m.r-160;
+    ctx.fillStyle=s.color;
+    if(s.type==="scatter"){ctx.beginPath();ctx.arc(lx+5,ly,4,0,7);ctx.fill();}
+    else{ctx.fillRect(lx,ly-2,12,3);}
+    ctx.fillStyle="#cdd9ec";ctx.fillText(s.label,lx+18,ly);
+    ly+=16;
+  });
+}
+function fmt(v){ if(Math.abs(v)>=1000||((Math.abs(v)<0.01)&&v!==0))return v.toExponential(1);
+  return (Math.round(v*1000)/1000).toString(); }
+function linspace(a,b,n){const out=[];for(let i=0;i<n;i++)out.push(a+(b-a)*i/(n-1));return out;}
+
+/* =====================================================================================
+   3) MANEJO DE LA INTERFAZ
+   ===================================================================================== */
+// pestañas
+document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".module").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); document.getElementById(b.dataset.tab).classList.add("active");
+});
+
+// checks de regresión
+const cont=document.getElementById("reg-metodos");
+Object.entries(METODOS_REG).forEach(([n,o],i)=>{
+  const lbl=document.createElement("label");lbl.className="check";
+  lbl.innerHTML=`<input type="checkbox" value="${n}" ${i===0?"checked":""}>
+    <span class="dot" style="background:${o.color}"></span>${n}`;
+  cont.appendChild(lbl);
+});
+
+// tabla dinámica
+function addRow(mod,x="",y=""){
+  const tb=document.querySelector(`#${mod}-tbl tbody`);
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td><input type="text" value="${x}"></td>
+                <td><input type="text" value="${y}"></td>
+                <td><button class="del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tb.appendChild(tr);
+}
+function clearTbl(mod){document.querySelector(`#${mod}-tbl tbody`).innerHTML="";}
+function parseNums(str){
+  return str.replace(/;/g,",").replace(/\s+/g,",").split(",").filter(s=>s.trim()!=="").map(Number);
+}
+function cargarTexto(mod){
+  const xs=parseNums(document.getElementById(`${mod}-x`).value);
+  const ys=parseNums(document.getElementById(`${mod}-y`).value);
+  if(xs.some(isNaN)||ys.some(isNaN)){return alerta(mod,"Hay valores no numéricos en X o Y.");}
+  if(xs.length!==ys.length){return alerta(mod,`X tiene ${xs.length} y Y tiene ${ys.length} valores: deben coincidir.`);}
+  clearTbl(mod); xs.forEach((x,i)=>addRow(mod,x,ys[i])); ocultarAlerta(mod);
+}
+function leerTabla(mod){
+  const filas=document.querySelectorAll(`#${mod}-tbl tbody tr`);
+  const x=[],y=[];
+  filas.forEach(f=>{
+    const inp=f.querySelectorAll("input");
+    const vx=inp[0].value.trim(), vy=inp[1].value.trim();
+    if(vx===""&&vy==="")return;
+    const nx=Number(vx),ny=Number(vy);
+    if(isNaN(nx)||isNaN(ny))throw new Error(`Celda no numérica: ("${vx}", "${vy}").`);
+    x.push(nx);y.push(ny);
+  });
+  if(x.length!==y.length)throw new Error("X e Y deben tener la misma longitud.");
+  if(x.length<2)throw new Error("Ingresa al menos 2 puntos.");
+  return [x,y];
+}
+function alerta(mod,msg){const a=document.getElementById(`${mod}-alert`);a.textContent="⚠ "+msg;a.style.display="block";}
+function ocultarAlerta(mod){document.getElementById(`${mod}-alert`).style.display="none";}
+
+function ejemploReg(){
+  document.getElementById("reg-x").value="1, 2, 3, 4, 5, 6, 7";
+  document.getElementById("reg-y").value="0.5, 1.7, 3.4, 5.7, 8.4, 11.3, 14.4";
+  cargarTexto("reg");
+}
+/* ---- REGRESIÓN ---- */
+function calcularReg(todos){
+  ocultarAlerta("reg");
+  let x,y;
+  try{[x,y]=leerTabla("reg");}catch(e){return alerta("reg",e.message);}
+
+  let seleccion;
+  if(todos){
+    seleccion=Object.keys(METODOS_REG);
+    document.querySelectorAll("#reg-metodos input").forEach(c=>c.checked=true);
+  }else{
+    seleccion=[...document.querySelectorAll("#reg-metodos input:checked")].map(c=>c.value);
+  }
+  if(seleccion.length===0)return alerta("reg","Selecciona al menos un método.");
+
+  const series=[{type:"scatter",x,y,color:"#e8eef7",label:"Datos originales"}];
+  const xc=linspace(Math.min(...x),Math.max(...x),300);
+  const resultados=[], errores=[];
+  seleccion.forEach(n=>{
+    try{
+      const res=METODOS_REG[n].fn(x,y);
+      resultados.push(res);
+      series.push({type:"line",x:xc,y:xc.map(res.fn),color:METODOS_REG[n].color,
+        label:`${n} (R²=${res.r2.toFixed(3)})`});
+    }catch(e){errores.push(`• ${n}: ${e.message}`);}
+  });
+  if(errores.length)alerta("reg",errores.join("  "));
+
+  dibujar(document.getElementById("reg-canvas"),series,{xlabel:"x",ylabel:"y"});
+
+  // tabla de resultados con resaltado del mejor R²
+  const tb=document.querySelector("#reg-results tbody"); tb.innerHTML="";
+  if(resultados.length){
+    let best=resultados.reduce((a,b)=>(isNaN(b.r2)?a:(b.r2>(isNaN(a.r2)?-1:a.r2)?b:a)));
+    resultados.forEach(r=>{
+      const tr=document.createElement("tr"); if(r===best)tr.className="best";
+      tr.innerHTML=`<td>${r.nombre}${r===best?'<span class="tag-best">MEJOR</span>':''}</td>
+        <td>${r.ecuacion}</td><td>${r.r.toFixed(4)}</td><td>${r.r2.toFixed(4)}</td><td>${r.syx.toFixed(4)}</td>`;
+      tb.appendChild(tr);
+    });
+    const steps=document.getElementById("reg-steps");
+    steps.style.display="block"; steps.textContent=resultados.map(r=>r.pasos).join("\n\n");
+  }else{
+    tb.innerHTML='<tr><td colspan="5" style="color:var(--muted)">Ningún método aplicó a estos datos.</td></tr>';
+  }
+}
+
+/* ---- ACERCA DE ---- */
+(function(){
+  const meta=document.getElementById("about-meta");
+  Object.entries(CREDITOS).forEach(([k,v])=>{
+    meta.insertAdjacentHTML("beforeend",`<b>${k}</b><span>${v}</span>`);
+  });
+  const ul=document.getElementById("about-autores");
+  AUTORES.forEach(a=>ul.insertAdjacentHTML("beforeend",`<li>${a}</li>`));
+})();
+
+// arranque: cargar ejemplos para que la app muestre algo de inmediato
+window.addEventListener("load",()=>{ ejemploReg(); calcularReg(false); });
+window.addEventListener("resize",()=>{ /* redibujar manteniendo último estado simple */ });
+</script>
+</body>
+</html>
